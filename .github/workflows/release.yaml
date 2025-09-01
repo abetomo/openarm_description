@@ -40,16 +40,18 @@ jobs:
           source /opt/ros/kilted/setup.bash
           colcon build
           source install/setup.bash
-          for file in $(find urdf -name "*.xacro"); do
+          for file in $(find urdf -name "*.xacro" -print0); do
             xacro "${file}" bimanual:=true > "${file%.*}.urdf"
             xacro "${file}" bimanual:=false > "${file%.*}_bimanual.urdf"
           done
+          find urdf -name "*.urdf" -print0 |
+            tar --null -czf openarm-description-urdf-${GITHUB_REF_NAME}.tar.gz -T -
       - uses: actions/upload-artifact@v4
         env:
           GH_TOKEN: ${{ github.token }}
         with:
           name: urdf
-          path: urdf/**/*.urdf
+          path: openarm-description-urdf-*.tar.gz
   publish:
     name: Publish
     needs: build
