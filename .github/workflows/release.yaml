@@ -14,17 +14,52 @@
 
 name: Release
 on:
-  push:
-    tags:
-      - '**'
+  - push
+  - pull_request
 jobs:
+  build:
+    name: WIP
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install ROS 2
+        run: |
+          sudo apt install -y -V software-properties-common curl
+          sudo add-apt-repository universe
+          export ROS_APT_SOURCE_VERSION=$(
+            curl -s https://api.github.com/repos/ros-infrastructure/ros-apt-source/releases/latest |
+              grep -F "tag_name" |
+              awk -F\" '{print $4}')
+          curl -L -o /tmp/ros2-apt-source.deb \
+            "https://github.com/ros-infrastructure/ros-apt-source/releases/download/${ROS_APT_SOURCE_VERSION}/ros2-apt-source_${ROS_APT_SOURCE_VERSION}.$(. /etc/os-release && echo $VERSION_CODENAME)_all.deb"
+          sudo dpkg -i /tmp/ros2-apt-source.deb
+          sudo apt update
+          sudo apt install -y -V ros-dev-tools ros-kilted-ros-base ros-kilted-xacro
+      - uses: actions/checkout@v5
+      - name: Build
+        run: |
+          source /opt/ros/kilted/setup.bash
+          colcon build
+          source install/setup.bash
+          for file in $(find urdf -name "*.xacro"); do
+            xacro "${file}" bimanual:=true > "${file%.*}.urdf"
+            xacro "${file}" bimanual:=false > "${file%.*}_bimanual.urdf"
+          done
+      - uses: actions/upload-artifact@v4
+        env:
+          GH_TOKEN: ${{ github.token }}
+        with:
+          name: urdf
+          path: urdf/**/*.urdf
   publish:
     name: Publish
+    needs: build
     runs-on: ubuntu-latest
     environment: release
     permissions:
       contents: write
       discussions: write
+    env:
+      LANG: en_US.UTF-8
     steps:
       - uses: actions/checkout@v4
       - name: Create source archive
@@ -39,6 +74,7 @@ jobs:
             openarm-description-${GITHUB_REF_NAME}.tar.gz > \
             openarm-description-${GITHUB_REF_NAME}.tar.gz.sha512
       - name: Create GitHub Release
+        if: github.ref_type == 'tag'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
