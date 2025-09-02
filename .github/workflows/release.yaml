@@ -76,18 +76,18 @@ jobs:
           merge-multiple: true
       - name: Create source archive
         run: |
-          find artifacts | sort
-
           name="openarm-description-${VERSION}"
           git archive --format=tar ${REF} \
             --prefix "${name}/" \
             --output "${name}.tar"
+
           mkdir "${name}"
           mv artifacts "${name}/urdf"
-          find "${name}/urdf" | tar -rf "${name}.tar" -T -
+          find "${name}/urdf" -type f | tar -rf "${name}.tar" -T -
           gzip "${name}.tar"
 
           # debug
+          echo "DEBUG"
           tar -tzf ${name}.tar.gz | sort
 
           sha256sum \
