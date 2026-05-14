@@ -39,10 +39,20 @@ jobs:
               cd /source
               colcon build
               source install/setup.bash
-              for file in $(find urdf -name "*.xacro"); do
-                xacro "${file}" bimanual:=true > "${file%.*}_${{ matrix.id }}_bimanual.urdf"
-                xacro "${file}" bimanual:=false > "${file%.*}_${{ matrix.id }}.urdf"
-              done'
+
+              mkdir -p urdf/{2.0,1.0}/${{ matrix.id }}
+              # For 2.0
+              scripts/generate_v20_urdfs.sh --all
+              mv urdf/openarm_*.urdf urdf/2.0/${{ matrix.id }}
+
+              # For 1.0
+              xacro assets/robot/openarm_v1.0/urdf/openarm_v10.urdf.xacro \
+                arm_type:=v10 body_type:=v10 bimanual:=true \
+                > urdf/1.0/${{ matrix.id }}/openarm_bimanual.urdf
+              xacro assets/robot/openarm_v1.0/urdf/openarm_v10.urdf.xacro \
+                arm_type:=v10 body_type:=v10 bimanual:=false \
+                > urdf/1.0/${{ matrix.id }}/openarm_single.urdf'
+
       - uses: actions/upload-artifact@v7
         with:
           name: urdf-${{ matrix.id }}
